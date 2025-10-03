@@ -1,2 +1,29 @@
 # Task8
 Data Visualization
+Task 8: Simple Sales Dashboard Design (Superstore Analysis)
+This submission addresses Task 8 by creating a mock-up of a simple, interactive sales dashboard and providing key business insights, as required by the mini-guide.
+
+Tool & Data
+Tool Used: Simulated Dashboard Design (typically using Power BI or Tableau).
+
+Dataset: Superstore_cleaned_for_powerbi.csv
+
+Steps Taken
+Data Preparation: The Order Date column was conceptually transformed to a 'Month-Year' hierarchy for time-series analysis. New columns for key metrics (like Total Sales) were verified.
+
+Dashboard Layout: A clean, focused layout was designed using common dashboard best practices (KPIs at the top, followed by interactive visuals).
+
+Visualizations Created:
+
+KPI Cards: Total Sales, Total Profit.
+
+Line Chart: Sales over Months (to show trend and seasonality).
+
+Bar Chart: Sales by Region (to compare market performance).
+
+Donut Chart: Sales by Category (to analyze product mix contribution).
+
+Interactivity: A Region Slicer was included to allow users to filter all visuals by geographical market.
+
+Insights Generation: Three key business insights were derived from the resulting visuals and documented in insights.txt.
+
