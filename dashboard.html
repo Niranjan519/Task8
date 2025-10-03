@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Sales Dashboard</title>
+    <!-- Chosen Palette: Professional Blue/Indigo -->
+    <!-- Application Structure Plan: A classic dashboard layout is used, mirroring the source report. The top row contains KPIs and a primary slicer for Region. The main content area uses a grid to display comparative charts (Category Donut, Region/State Bar) and a trend chart (Sales over Time). This structure is intuitive for business users, presenting high-level summaries first, followed by detailed, filterable visualizations. The key user flow is selecting a region, which triggers a full update of all dashboard components, allowing for easy exploration of regional performance. -->
+    <!-- Visualization & Content Choices: 
+        - KPIs (Total Sales, Total Profit): Goal: Inform. Method: Styled HTML divs. Interaction: Dynamically update on filter selection. Justification: Provides immediate, high-level metrics.
+        - Region Slicer: Goal: Interact. Method: HTML buttons. Interaction: Click to filter the entire dashboard. Justification: Core interactive element for regional analysis.
+        - Sales by Category: Goal: Compare Proportions. Method: Chart.js Donut Chart. Interaction: Updates with region filter. Justification: Best for showing part-to-whole relationships in sales mix.
+        - Sales by Region/State: Goal: Compare Performance. Method: Chart.js Bar Chart. Interaction: Updates with region filter (drills down from Region to State). Justification: Ideal for comparing discrete values across markets.
+        - Sales Over Time: Goal: Analyze Trends. Method: Chart.js Line Chart. Interaction: Updates with region filter. Justification: Best for showing seasonality and trends over a continuous period.
+        - Library/Method: Chart.js used for all visualizations due to its simplicity, interactivity, and Canvas-based rendering.
+    -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8fafc; /* Tailwind gray-50 */
+        }
+        .kpi-card {
+            background-color: white;
+            padding: 1.5rem;
+            border-radius: 0.75rem;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+            transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+        }
+        .kpi-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+        }
+        .chart-container {
+            position: relative;
+            background-color: white;
+            padding: 1.5rem;
+            border-radius: 0.75rem;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+            height: 400px;
+            max-height: 50vh;
+        }
+        .filter-btn {
+            transition: all 0.2s ease-in-out;
+        }
+        .filter-btn.active {
+            background-color: #4f46e5; /* Indigo-600 */
+            color: white;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+        }
+    </style>
+</head>
+<body class="p-4 sm:p-6 md:p-8">
+    <div class="max-w-7xl mx-auto">
+        <!-- Header -->
+        <header class="mb-6">
+            <h1 class="text-3xl font-bold text-gray-800">Sales Performance Dashboard</h1>
+            <p class="text-gray-500 mt-1">An interactive view of Superstore sales across regions, categories, and time.</p>
+        </header>
+
+        <!-- Filters & KPIs -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+            <!-- Region Slicer -->
+            <div class="lg:col-span-1 bg-white p-4 rounded-lg shadow-sm">
+                <h3 class="font-semibold text-gray-700 mb-3">Filter by Region</h3>
+                <div id="region-filter-container" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-2 gap-2">
+                    <button data-region="All" class="filter-btn active w-full text-sm font-medium py-2 px-3 rounded-lg bg-gray-200 hover:bg-gray-300">All Regions</button>
+                    <button data-region="West" class="filter-btn w-full text-sm font-medium py-2 px-3 rounded-lg bg-gray-200 hover:bg-gray-300">West</button>
+                    <button data-region="East" class="filter-btn w-full text-sm font-medium py-2 px-3 rounded-lg bg-gray-200 hover:bg-gray-300">East</button>
+                    <button data-region="Central" class="filter-btn w-full text-sm font-medium py-2 px-3 rounded-lg bg-gray-200 hover:bg-gray-300">Central</button>
+                    <button data-region="South" class="filter-btn w-full text-sm font-medium py-2 px-3 rounded-lg bg-gray-200 hover:bg-gray-300">South</button>
+                </div>
+            </div>
+            <!-- KPI Cards -->
+            <div class="kpi-card lg:col-span-1">
+                <h3 class="text-gray-500 font-medium">Total Sales</h3>
+                <p id="total-sales" class="text-4xl font-bold text-indigo-600 mt-2">$0</p>
+                <p id="sales-context" class="text-sm text-gray-400 mt-1">Across all selected regions</p>
+            </div>
+            <div class="kpi-card lg:col-span-1">
+                <h3 class="text-gray-500 font-medium">Total Profit</h3>
+                <p id="total-profit" class="text-4xl font-bold text-green-600 mt-2">$0</p>
+                 <p id="profit-context" class="text-sm text-gray-400 mt-1">Across all selected regions</p>
+            </div>
+        </div>
+
+        <!-- Charts -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+            <div class="chart-container">
+                <canvas id="categoryChart"></canvas>
+            </div>
+            <div class="chart-container">
+                <canvas id="regionChart"></canvas>
+            </div>
+        </div>
+        <div class="grid grid-cols-1 gap-6">
+             <div class="chart-container h-[450px] max-h-[60vh]">
+                <canvas id="salesTrendChart"></canvas>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // --- DATA SOURCE (Sample from Superstore Dataset) ---
+        // In a real application, this would be fetched from an API.
+        const superstoreData = [
+            {"Order Date":"2013-11-09","Region":"South","State":"Kentucky","Category":"Furniture","Sales":261.96,"Profit":41.9136},
+            {"Order Date":"2013-11-09","Region":"South","State":"Kentucky","Category":"Furniture","Sales":731.94,"Profit":219.582},
+            {"Order Date":"2013-06-13","Region":"West","State":"California","Category":"Office Supplies","Sales":14.62,"Profit":6.8714},
+            {"Order Date":"2012-10-11","Region":"South","State":"Florida","Category":"Furniture","Sales":957.5775,"Profit":-383.031},
+            {"Order Date":"2012-10-11","Region":"South","State":"Florida","Category":"Office Supplies","Sales":22.368,"Profit":2.5164},
+            {"Order Date":"2011-06-09","Region":"West","State":"California","Category":"Furniture","Sales":48.86,"Profit":14.1694},
+            {"Order Date":"2011-06-09","Region":"West","State":"California","Category":"Office Supplies","Sales":7.28,"Profit":1.9656},
+            {"Order Date":"2011-06-09","Region":"West","State":"California","Category":"Technology","Sales":907.152,"Profit":90.7152},
+            {"Order Date":"2011-06-09","Region":"West","State":"California","Category":"Office Supplies","Sales":18.504,"Profit":5.7825},
+            {"Order Date":"2013-08-28","Region":"West","State":"California","Category":"Office Supplies","Sales":114.9,"Profit":34.47},
+            {"Order Date":"2013-08-28","Region":"West","State":"California","Category":"Technology","Sales":57.98,"Profit":19.7132},
+            {"Order Date":"2013-12-14","Region":"East","State":"Pennsylvania","Category":"Technology","Sales":427.92,"Profit":-142.64},
+            {"Order Date":"2013-12-14","Region":"East","State":"New York","Category":"Office Supplies","Sales":23.96,"Profit":8.386},
+            {"Order Date":"2014-11-22","Region":"Central","State":"Texas","Category":"Office Supplies","Sales":1.624,"Profit":-2.9232},
+            {"Order Date":"2014-11-22","Region":"Central","State":"Texas","Category":"Office Supplies","Sales":6.024,"Profit":-4.518},
+            {"Order Date":"2014-12-26","Region":"East","State":"Delaware","Category":"Furniture","Sales":440.736,"Profit":-275.46},
+            {"Order Date":"2013-11-17","Region":"Central","State":"Illinois","Category":"Office Supplies","Sales":65.88,"Profit":15.1524},
+            {"Order Date":"2013-11-17","Region":"Central","State":"Illinois","Category":"Technology","Sales":463.92,"Profit":-23.196},
+            {"Order Date":"2011-12-05","Region":"West","State":"Washington","Category":"Technology","Sales":223.92,"Profit":27.99},
+            {"Order Date":"2011-11-25","Region":"Central","State":"Texas","Category":"Technology","Sales":213.552,"Profit":16.0164},
+            {"Order Date":"2012-12-09","Region":"East","State":"New York","Category":"Furniture","Sales":218.4,"Profit":2.184},
+            {"Order Date":"2012-04-16","Region":"West","State":"California","Category":"Office Supplies","Sales":17.46,"Profit":5.5872},
+            {"Order Date":"2014-10-25","Region":"South","State":"North Carolina","Category":"Technology","Sales":302.376,"Profit":22.6782}
+        ];
+        // --- END DATA SOURCE ---
+
+        let categoryChart, regionChart, salesTrendChart;
+        let selectedRegion = 'All';
+
+        const formatCurrency = (value) => {
+            if (Math.abs(value) >= 1_000_000) {
+                return `$${(value / 1_000_000).toFixed(2)}M`;
+            }
+            if (Math.abs(value) >= 1_000) {
+                return `$${(value / 1_000).toFixed(1)}K`;
+            }
+            return `$${value.toFixed(0)}`;
+        };
+
+        const chartColors = {
+            blue: 'rgba(79, 70, 229, 0.7)',
+            green: 'rgba(5, 150, 105, 0.7)',
+            purple: 'rgba(124, 58, 237, 0.7)',
+            gray: 'rgba(107, 114, 128, 0.7)',
+            lightBlue: 'rgba(59, 130, 246, 0.5)'
+        };
+
+        function updateDashboard() {
+            const data = selectedRegion === 'All' 
+                ? superstoreData 
+                : superstoreData.filter(d => d.Region === selectedRegion);
+
+            // Update KPIs
+            const totalSales = data.reduce((sum, item) => sum + item.Sales, 0);
+            const totalProfit = data.reduce((sum, item) => sum + item.Profit, 0);
+            document.getElementById('total-sales').textContent = formatCurrency(totalSales);
+            document.getElementById('total-profit').textContent = formatCurrency(totalProfit);
+
+            // Update Charts
+            updateCategoryChart(data);
+            updateRegionStateChart(data);
+            updateSalesTrendChart(data);
+        }
+
+        function updateCategoryChart(data) {
+            const categoryData = data.reduce((acc, item) => {
+                acc[item.Category] = (acc[item.Category] || 0) + item.Sales;
+                return acc;
+            }, {});
+
+            const labels = Object.keys(categoryData);
+            const values = Object.values(categoryData);
+            
+            if (categoryChart) categoryChart.destroy();
+            
+            categoryChart = new Chart(document.getElementById('categoryChart'), {
+                type: 'doughnut',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Sales by Category',
+                        data: values,
+                        backgroundColor: [chartColors.blue, chartColors.purple, chartColors.gray],
+                        borderColor: '#ffffff',
+                        borderWidth: 4,
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'top' },
+                        title: { display: true, text: `Sales by Product Category (${selectedRegion})`, font: { size: 16 } },
+                        tooltip: { callbacks: { label: (c) => `${c.label}: ${formatCurrency(c.raw)}` } }
+                    }
+                }
+            });
+        }
+        
+        function updateRegionStateChart(data) {
+            const isAllRegions = selectedRegion === 'All';
+            const aggregationKey = isAllRegions ? 'Region' : 'State';
+
+            const aggregatedData = data.reduce((acc, item) => {
+                const key = item[aggregationKey];
+                acc[key] = (acc[key] || 0) + item.Sales;
+                return acc;
+            }, {});
+            
+            const sortedData = Object.entries(aggregatedData).sort(([,a],[,b]) => b-a);
+            
+            const labels = sortedData.map(([key]) => key);
+            const values = sortedData.map(([,value]) => value);
+
+            if (regionChart) regionChart.destroy();
+
+            regionChart = new Chart(document.getElementById('regionChart'), {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Sales',
+                        data: values,
+                        backgroundColor: (context) => {
+                           const baseColor = chartColors.green;
+                           if (isAllRegions && context.raw === Math.max(...values)) {
+                                return chartColors.blue;
+                           }
+                           return baseColor;
+                        },
+                        borderRadius: 4
+                    }]
+                },
+                options: {
+                    indexAxis: 'y',
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        title: { display: true, text: isAllRegions ? 'Sales by Region' : `Sales by State (${selectedRegion})`, font: { size: 16 } },
+                        tooltip: { callbacks: { label: (c) => `${c.label}: ${formatCurrency(c.raw)}` } }
+                    },
+                    scales: {
+                        x: { beginAtZero: true, ticks: { callback: (v) => formatCurrency(v) } }
+                    }
+                }
+            });
+        }
+        
+        function updateSalesTrendChart(data) {
+            const monthlyData = data.reduce((acc, item) => {
+                const month = item['Order Date'].substring(0, 7); // YYYY-MM
+                acc[month] = (acc[month] || 0) + item.Sales;
+                return acc;
+            }, {});
+
+            const sortedMonths = Object.keys(monthlyData).sort();
+            const labels = sortedMonths;
+            const values = sortedMonths.map(month => monthlyData[month]);
+
+            if (salesTrendChart) salesTrendChart.destroy();
+            
+            salesTrendChart = new Chart(document.getElementById('salesTrendChart'), {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Monthly Sales',
+                        data: values,
+                        borderColor: chartColors.blue,
+                        backgroundColor: chartColors.lightBlue,
+                        fill: true,
+                        tension: 0.3,
+                        pointRadius: 2,
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        title: { display: true, text: `Sales Over Time (${selectedRegion})`, font: { size: 16 } },
+                        tooltip: { callbacks: { label: (c) => `Sales: ${formatCurrency(c.raw)}` } }
+                    },
+                     scales: {
+                        y: { beginAtZero: true, ticks: { callback: (v) => formatCurrency(v) } }
+                    }
+                }
+            });
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            const filterContainer = document.getElementById('region-filter-container');
+            
+            filterContainer.addEventListener('click', (e) => {
+                if (e.target.tagName === 'BUTTON') {
+                    selectedRegion = e.target.dataset.region;
+                    
+                    // Update active button style
+                    filterContainer.querySelectorAll('button').forEach(btn => btn.classList.remove('active'));
+                    e.target.classList.add('active');
+
+                    updateDashboard();
+                }
+            });
+
+            // Initial dashboard load
+            updateDashboard();
+        });
+    </script>
+</body>
+</html>
